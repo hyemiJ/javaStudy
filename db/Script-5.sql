@@ -1,0 +1,1 @@
+SELECT p.product_id , p.product_name , p2.option_content FROM products p JOIN productoptions p2 ON p.product_id =p2.product_id WHERE p.product_id =5;
