@@ -1,0 +1,222 @@
+
+//-----------------------------------------------------------
+ 	* React_Boot Project CORS 방침 설정 *
+//-----------------------------------------------------------
+
+** CORS 방침
+=> CORS(Cross-Origin Resource Sharing) : 교차(다른) 출처 리소스 공유 
+=> Origin: Protocol, Host, 포트번호를 합친것으로 서버를 찾아가기위한 가장기본적인 주소
+=> 요청헤더에는 이요청의 Origin이 담겨있고 서버는 이를 확인해 자신의 Origin과 다르면 이요청을 거절함 (403) 
+   그러므로 서버에서 이를 허용하는 방침을 설정해야함.
+
+** [Spring Boot] CORS 해결 방법 3가지
+=> WebMvcConfigurer, @CrossOrigin, Filter 
+	
+=> 방법1 
+	-> addCorsMappings(...) 메서드를 오버라이딩 해서 CORS를 적용할 URL패턴을 정의할 수 있음 
+	-> WebMvcConfig.java 참고
+	
+=> 방법2 Controller 또는 메소드단에서 annotation을 통해 적용 
+	-> @CrossOrigin(origins = "*", allowedHeaders = "*")
+	-> UserController.java
+	
+=> 방법3 Filter
+  커스텀필터(CorsFilter) 를 만들어 직접 response에 header를 넣어주기
+	- Filter 인터페이스를 구현하여 doFilter 메서드 Override
+	- @Component 에너테이션 추가 
+	- Filter 는 꼭 javax.servlet 의 Filter를 사용함.
+
+=> 설정실습 
+	- com.example.demo.config.WebMvcConfig 의 addCorsMappings()
+
+//-----------------------------------------------------------
+ 	* JWT 인증 및 SpringSecurity 기본 사용 *
+//-----------------------------------------------------------
+
+*** 토큰 기반 인증 방식 ***  
+
+=> 쿠키는 사용자 인증정보를 담아 HTTP통신을 하게되면, 제3자가 악의적인 공격으로 데이터를 엿볼수 있다.
+ 세션은 쿠키보다 보안성이 강하지만, 세션ID에 대해 서버가 내부적으로 스토리지를 보유하고 있어야한다는 단점이 있다.
+ 따라서 쿠키나 세션이 아닌 토큰 기반 인증방식을 통하게 되면 더욱 보안성이 강하고 효율적이다.
+=> JWT 와 Oauth 인증방식 이 대표적이다.
+=> OAuth(Open Authorization)
+	  인터넷 사용자들이 비밀번호를 제공하지 않고 다른 웹사이트 상의 자신들의 정보에 대해
+	  웹사이트나 애플리케이션의 접근 권한을 부여할수있는 공통적인 수단으로서 사용되는,
+	  접근 위임을 위한 개방형 표준이다.
+	  예를 들어 페이스북과 트위터의 경우 굳이 페이스북과 트위터 각각에 로그인하지 않고도, 
+	  다른 어플리케이션에서 인증 절차만 거치면 사용할수 있는것.
+
+*** JWT (JSON Web Token) *** 
+=> JSON 형태로 된 토큰이며 {header}.{payload}.{signature} 로 구성됨.
+=> 토큰(Token) : 사용자를 구별할수 있는 문자열 
+=> 기본 동작
+	- 최초 로그인시 서버가 만들어줌 
+	- 클라이언트는 이후 매요청에 이 토큰을 담아 인증된 사용자임을 알린다.  
+ 	request header에 "Authorization: Bearer+[accessToken]" 넣어줌.
+ 	( ~~/src/service/apiService.js 의 function apiCall() 의 header 값 참고)
+
+=> 대표적 오픈 API
+	- Jwts 클래스 (JWT 관리 API) 
+	- JSON 생성, 서명, 인코딩, 디코딩, 파싱 등 토큰관리 기능 제공.
+
+** JWT Header
+=> typ: type, JWT가 아닌 객체와 구분하기 위해 사용
+=> alg: algorithm, 토큰 발행에 사용된 해시알고리즘의 종류를 의미. 
+
+** JWT Payload 의 Claims Set
+=> iss (Issuer) : 토큰 발급자 ( 예를들면 demo app )
+=> sub (Subject) : 토큰 제목 - 토큰에서 사용자에 대한 식별값이 되므로 유일해야됨
+=> aud (Audience) : 토큰 대상자
+=> exp (Expiration Time) : 토큰 만료 시간
+=> nbf (Not Before) : 토큰 활성 날짜 (이 날짜 이전의 토큰은 활성화 되지 않음을 보장)
+=> iat (Issued At) : 토큰발행 날짜와 시간
+=> jti (JWT Id) : JWT 토큰 식별자 (issuer가 여러명일 때 이를 구분하기 위한 값)
+=> 이 7가지를 모두 포함해야하는 것은 아니고, 상황에 따라 해당서버가 가져야할 인증체계에 따라 사용한다.
+
+** JWT Signature
+=> 토큰발행 주체(issuer) 가 발행한 서명, 토큰의 유효성 검사에 이용됨.
+
+** Bearer Token ********************************************
+=> HTTP통신에서 사용하는 인증 방식에 Bearer Authentication을 사용하는 것이다.
+=> Bearer Authentication이란, "이 토큰의 나르는(bearer) 사람에게 권한을 부여하시오"라는 의미이며,
+	Bearer Token은 JWT나 Oauth에서 사용되는 토큰을 모두 통칭하는 용어이다.
+
+** Claims (참고) ********************************************
+=> claim: 주장하다, (자기 권리나 재산이라고 여겨) 요구[요청]하다
+=> Claim은
+	key:value 의 쌍으로 이루어져있고, 서명 또는 암호화하는데에 사용되는 속성들을 의미하며
+	이들을 JWT Claims Set이라 하고 JSON 객체로 전달된다.
+=> 표준 스펙상 key는 3글자(sub, iss....) 이고, unique 해야함.
+	그렇지 않으면 파싱거부 되거나 마지막 key만 파싱될수있는데 이는 구현체에 따라 다르다.
+ 	또한 JWT가 이해할수없는 claim은 무시된다.
+=> JWT Claim Names는 세 가지로 분류되는데, registered, public, private이다.
+=> 위 JWT Payload 의 Claims Set 은 registered 에 해당함. 
+
+//-----------------------------------------------------------
+ 	* 커스텀 인증필터(AuthenticationFilter) 클래스 만들기 & 등록하기 *
+//-----------------------------------------------------------
+
+** JwtAuthenticationFilter (인증클래스) 주요개념
+
+=> 등록: SecurityConfig.java 의 filterChain 메서드 참고
+=> 스프링 시큐리티의 filter 의 상속 관계
+	-> javax.servlet.Filter 인터페이스를 구현해서 커스텀Filter를 작성할수 있다
+	-> Filter(i) -> GenericFilterBean(a) -> OncePerRequestFilter(a)
+	-> JwtAuthenticationFilter (OncePerRequestFilter(a) 를 상속받아 작성)
+
+** OncePerRequestFilter
+=> https://hongdosan.tistory.com/entry/JWT-OncePerRequestFilter-Filter
+=> 모든 서블릿에 일관된 요청을 처리하기 위해 만들어진 Filter.
+	 이 추상 클래스를 구현한 Filter는 사용자의 요청당 딱 한번만 실행되는 Filter를 만들수있다.
+=> 비교하면 Filter 또는 Filter를 더 확장한 GenericFilterBean 을 상속받아 만드는 경우에는
+	 앞서 거친 Filter들을 또한번 거치는, 쓸데없는 자원낭비가 일어나는데 이를 방지해준다.
+
+** doFilter() 와 doFilterInternal()
+=> 인증처리를 담당함.
+=> 일반적으로 구현된 필터는 아래 두가지 케이스가 존재함.
+	-> Filter인터페이스의 doFilter를 직접 구현한 필터
+		doFilter메서드를 호출하면 사용자가 구현한 로직이 바로 실행
+	-> Filter인터페이스의 doFilter를 구현한 필터클래스를 상속하여 doFilterInternal 을 구현한 필터
+		위의 OncePerRequest필터처럼 doFilter메서드를 OncePerRequest필터 안에서 구현하고
+		doFilter에서 doFilterInternal을 호출하는 방식이다.
+		doFilterInternal은 추상메서드 이므로 사용자가 직접 구현해야함 (아래코드 참고)
+
+=> doFilter()
+	-> url-pattern에 맞는 모든 HTTP 요청이 디스패처 서블릿으로 전달되기전 웹컨테이너에 의해 실행되는 메소드
+	-> doFilter의 파라미터로는 FilterChain이 있는데, FilterChain의 doFilter 통해 다음 대상으로 요청을 전달하게 된다.
+	-> chain.doFilter() 전/후에 우리가 필요한 처리 과정을 넣어줌으로써 원하는 처리를 진행할 수 있다.
+
+=> 스프링 Filter 동작과정
+	https://emgc.tistory.com/125
+	https://mangkyu.tistory.com/173 참고
+
+//***********************************************************
+//-----------------------------------------------------------
+*** 실습순서
+
+=> DemoApplication.java 기본설정은 아래설정 유지
+	-> @SpringBootApplication(exclude={SecurityAutoConfiguration.class})	
+=> CORS 설정
+	-> com.example.demo.config.WebMvcConfig 의 addCorsMappings()
+=> JWT 인증
+	-> com.example.demo.jwtToken: TokenProvider, JwtAuthenticationFilter 
+	-> com.example.demo.config: SecurityConfig
+=> roleList 생성하기
+	-> ~entity: Member.java (roleList, claimList()_token에 Role포함시 필요함)  
+	-> ~domain: enum MemberRole.java	
+	-> member_role_list 테이블이 만들어짐
+	-> Test Data 추가 및 확인: DemoApplicationTests.java 에서 @Test 사용
+=> UserController, AuthController 추가후 Test 
+
+1. TokenProvider
+=> JWT Token 발급 & 검증
+=> Role을 token에 포함하기전/포함후 2종류
+
+** 주요 문법 : 시간 관련 API  
+=> ChronoUnit 
+	-> TemporalUnit 인터페이스를 구현한 Enum 클래스
+	-> DAYS, HOURS, NANOS, MICROS 등등 다양한 시간 단위가 있고,
+	-> 외부에서 사용할 수 있는 between, getDuration, isDurationEstimated 등 다양한 API 제공함
+	-> ChronoUnit.DAYS : 일(Day) 의 차이
+
+=> Instant
+	-> 시간을 타임스탬프로 다루기 위해 사용한다. 
+	-> UTC 기준으로 1970년 1월 1일 0시 0분 0초를 숫자 0으로 정하고 그로부터 경과된 시간을 양/음수로 표현한다. 
+	-> Instant.now() : 현재 시간을 Instant 객체로 얻을 수 있음. 
+
+//-----------------------------------------------------------
+
+2. JwtAuthenticationFilter
+=> 인증필터(AuthenticationFilter) 클래스 만들기 & 등록하기
+=> 등록: SecurityConfig.java 의 filterChain 메서드 참고
+=> Role을 token에 포함하기전/포함후 2종류
+ 
+** 주요 문법 
+=> String 의 주요메서드
+	-> startsWith() : 어떤 String이 특정 문자열로 시작하는지를 boolean 타입으로 리턴
+	-> endsWith() : 특정 문자열로 끝나는지 boolean 타입으로 리턴.
+	-> a.equalsIgnoreCase(b) : a와 b가 똑같은지 확인하는 메서드이며, 대소문자 구분없이 비교함.
+
+=> StringUtils
+	-> import org.springframework.util.StringUtils;
+	-> 거의 대부분의 문자열 처리를 수행할 수 있음.
+	-> 파라미터 값으로 null을 주더라도 NullPointException을 발생시키지 않고, 
+		메서드에 따라 알맞은 결과를 리턴한다.	
+	-> 주요 method 정리
+		- hasText()
+			null, 길이 0, 공백("" or " ") 중 하나라도 있으면 false를 반환함.
+		- hasLength()
+			null 체크 후, 길이가 0인지 판별한다.
+			( 공백만 있는 문자열, " " 도 true가 반환되는 점을 주의 )
+			공백으로만 이루어졌더라도 상관없이 null 체크와 길이가 1 이상인지 확인할때 사용.
+		- isEmpty()
+			null, 길이 0, 공백("" or " ") 중 하나라도 있으면 false를 반환함. (위의 hasText() 권장함) 
+		- deleteWhitespace() , trim()
+			문자열에 공백 문자가 있으면 모두 제거
+		- equals() : 파라미터 값의 동일성
+
+//-----------------------------------------------------------
+
+3. SecurityConfig
+=> Spring_Boot Security 인증 설정화일
+=> filterChain 을 생성한다.
+=> 필수@: @Configuration, @EnableWebSecurity, @Bean 
+
+//-----------------------------------------------------------
+ 	* SpringSecurity Login/Logout 적용 코드 *
+//-----------------------------------------------------------
+=> 추가적으로 공부할때 참고하세요 ~~ 
+=> com.example.demo.securityLogin;
+
+=> pom.xml: dependency 추가
+
+<!-- ** Spring Security Login 사용시 필요함 ~~~~~~~~~~~~~~~
+			  https://mvnrepository.com/artifact/com.google.code.gson/gson
+				->  gson : Java객체 -> JSON Type  &  JSON Type -> Java객체   -->
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+		</dependency>
+		<!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ --> 
+
+

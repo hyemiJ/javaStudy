@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mapperInterface.MemberMapper">
+ <!-- SQL 쿼리 정의 -->
+ <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
+** interface 를 통해 ..~Mapper 접근
+=> interface ..~Mapper.java 의 패키지명 & 화일명과  
+   ..~Mapper.xml 의 패키지명 & 화일명 & namespace 값은 같아야됨. 
+   
+=> namespace: 자바클래스에서 mapper를 찾는 경로
+              다른 mapper와 중복되지 않도록 네임스페이스 기재   
+
+*** mapper 기본문법 
+1) #{id} : parameter 로 전달된 dto 의 id 라는 컬럼의 value 가 전달됨  
+           -> getId() 로 처리함, Map의 경우 키값이 id 인 값을 찾음.
+            
+2) ${id} : 필드를 표현 (매개변수로 전달된 객체의 id 컬럼의 값을 table의 컬럼으로 인식하고 적용함)    
+           
+3) CDATA : XML에서는  <,>등 비교연산자의 경우 XML규칙상 에러 나기 때문에,
+           이 기호를 연산자로 인식하도록 하기 위해서는 SQL문을 CDATA로 묶어 주어야 한다.
+           
+           <![CDATA[ SELECT * FROM table WHERE jno < 5 ]]>
+           
+4) 조건문, 반복문, sql, include, selectKey 등            
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+<!-- mSearchList -->
+<sql id="search">
+<if test="keyword!=null">
+<bind name="keyValue" value="'%'+keyword+'%'" />
+</if>
+<choose>
+<when test="searchType =='all' and keyword!=null">
+	and (id like #{keyValue} or
+	name like #{keyValue} or
+	info like #{keyValue} or
+	point like #{keyValue} or
+	jno like #{keyValue} or
+	birthday like #{keyValue} or
+	rid like #{keyValue} or
+	age like #{keyValue})
+</when>
+<when test="searchType !=null and keyword!=null">
+	and ${searchType} like #{keyValue}
+</when>
+</choose>
+</sql>
+
+<select id="mSearchList" resultType="com.example.demo02.domain.MemberDTO">
+select * from member 
+where id is not null <include refid="search"></include>
+order by jno
+limit #{startRowNumber} , #{rowsPerPageCount}
+</select>
+<!-- mSearchCount -->
+<select id="mSearchCount" resultType="int">
+select count(*) from member
+where id is not null  <include refid="search"></include>
+</select>
+<!-- page List  -->
+<select id="mPageList" resultType="com.example.demo02.domain.MemberDTO">
+select * from member 
+order by jno
+limit #{startRowNumber} , #{rowsPerPageCount}
+</select>
+<!--public int totalRowsCount(Criteria cri)  -->
+<select id="totalRowsCount" resultType="int">
+select count(*) from member</select>
+
+<!--List<MemberDTO> mCheckList(Criteria cri);  -->
+<select id="mCheckList" resultType="com.example.demo02.domain.MemberDTO">
+select id , name , age, jno , info , point , birthday , rid 
+from member
+<if test="check!=null">
+where jno in
+<foreach collection="check" item="it" open="(" separator="," close=")">
+#{it}
+</foreach>
+</if>
+order by age
+limit #{startRowNumber} , #{rowsPerPageCount}
+</select>
+
+<!--public int mCheckCount(Criteria cri);  -->
+<select id="mCheckCount" resultType="int">
+select count(*) from member
+<if test="check!=null">
+where jno in
+<foreach collection="check" item="it" open="(" separator="," close=")">
+#{it}
+</foreach>
+</if>
+</select>
+
+  <!-- all row : selectList -->
+  <select id="selectList" resultType="com.example.demo02.domain.MemberDTO">
+  select * from member
+  </select>
+  
+  <!-- one row : selectOne -->
+	<!-- ?를 해결하는 방법 : id=dto.getID()-> #{id} -->
+  <select id="selectOne" resultType="com.example.demo02.domain.MemberDTO">
+  select * from member where id=#{id}
+  </select>
+  <!-- row Insert : Insert -->
+    <!-- 리턴타입이 int형으로 실행갯수가 반환되기 때문에 생략해도됨 -->
+  <insert id="insert">
+  insert into member values(#{id},#{password},#{name},#{age},#{jno},#{info},#{point},#{birthday},#{rid},#{uploadfile})
+  </insert>
+  <!-- row Update : Update -->
+  <update id="update">
+  update member set name=#{name}, age=#{age} ,jno=#{jno}, info=#{info}, point=#{point}, birthday=#{birthday} , rid =#{rid} , uploadfile = #{uploadfile} where id=#{id}
+  </update>
+  <!-- row Delete : Delete -->
+  <delete id="delete">
+  	delete from member where id=#{id}
+  </delete>
+</mapper>

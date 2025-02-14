@@ -1,0 +1,206 @@
+
+===============================================================
+===============================================================
+
+*** 인터셉터 ( Interceptor )
+ 
+=> 특정 URI 요청에 대해 Controller로 가는 요청을 가로채는 역할을 한다.
+
+**  Interceptor 와  Filter (스프링 시큐리티) 의 차이
+
+=> 공통점 : 둘 다 Controller로 들어가는 요청을 가로채 
+	   특정 작업 (주로 인증과 권한 확인) 을 위한 용도로 사용된다.
+
+=> 차이점
+	- Filter 는 스프링과 무관하게 서블릿 자원이고 (그러므로 스프링과 무관하게 사용가능), 
+               Interceptor 는 스프링 빈으로 관리되며 스프링의 컨텍스트내에 속함.   
+	- 호출시점이 다름 :  Request > Filter > Servlet > Interceptor > Controller  
+	- Filter 는 한글처리 등에 이용되고, 스프링 시큐리티 도 Filter 기반.
+  	- Interceptor는 스프링의 Dispatcher Servlet 에서 Controller 호출 전.후에 실행
+	  ( 즉, 스프링 내부에서 실행됨 )
+	 
+* Interceptor 가 인증작업(로그인 확인등) 에 주로 이용되는 이유
+	- 만약 인터셉터를 이용하지 않고, 로그인 처리를 한다면, 
+	  게시물을 작성("/board/register"), 수정("/board/modify"), 삭제("/board/delete") 등
+	  모든 요청마다 Controller에서 session을 통해 로그인 정보가 남아 있는지를
+   	  확인하는 코드를 중복해서 입력해야 할 것이다. 
+ 	  그러나 인터셉터를 이용하면, A, B, C 작업(A,B,C 경로로 요청)을 할 경우에는
+ 	  ~~Interceptor를 먼저 수행해 session에 로그인 정보가 있는지 확인해 주는 역할을 한다면,
+	  중복 코드가 확 줄어들 수 있을 것이다. 이러한 장점 때문에 많이 사용됨.
+
+** 인터셉터를 지원하는 인터페이스와 클래스, 메서드
+
+=> HandlerInterceptor 인터페이스
+=> HandlerInterceptorAdapter 추상 클래스
+	- 인터페이스를 사용하기 쉽게 구현해 놓은 추상클래스.
+	- 정의 메서드
+	 : preHandle(), postHandle(), afterCompletion(), afterConcurrentHandlingStarted()
+
+	1) public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
+	-> Controller 요청 호출 전에 수행
+	    return true : 계속진행
+	    return false : 인터셉터, 컨트롤러 실행 중지됨 (만약 필터의 응답처리가 있다면 실행됨)  
+ 	-> request, response, handler 등의 매개변수 이용가능
+	    이들 중 handler 는 이 preHandle() 메서드 수행후 수행될 컨트롤러 메서드에 대한 정보를 담고 있는 handle 이다.
+
+	2) public void postHandle(HttpServletRequest request, HttpServletResponse response, 
+		Object handler, ModelAndView modelAndView)
+	-> Controller 요청 호출 후 view페이지 출력 직전에 수행
+	-> 매개변수 ModelAndView 객체에 컨트롤러에서 전달해온 Model 객체가 전달됨으로
+	    view페이지 랜더링 되기전 ModelAndView 객체 조작 가능
+
+	3) public void afterCompletion(
+		HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex)
+	-> 컨트롤러가 수행되고 view페이지 랜더링 후 실행됨.
+
+	4) public void afterConcurrentHandlingStarted(
+		HttpServletRequest request, HttpServletResponse response, Object handler)
+	-> Servlet3.0 부터 비동기 요청 가능하고,
+	    비동기 요청시에는 postHandle(), afterCompletion() 은 실행되지않고 이 메서드가 실행됨.  
+
+*** 인터셉터 실습 
+
+** 1.  servlet-context.xml
+
+1.1) 인터셉터 객체 생성
+1.2) 인터셉터 설정 
+	=> 어떤 url 요청시에 인터셉터를 적용할지를 설정
+	=> 1.2.1) 필요한 uri를 하나하나 지정
+	=> 1.2.2) 전체경로 "/**" 로 잡아 놓고 "예외url" 을 지정 
+
+--- 1.2.1) -----------------------------------------------------------
+<!-- 인터셉터 객체 생성 -->
+<beans:bean id="authenticationInterceptor" class="org.zerock.interceptor.AuthenticationInterceptor">
+</beans:bean>
+<!-- Interceptor 설정 -->
+<interceptors>
+        <interceptor>
+            <mapping path="/board/register"/>
+            <mapping path="/board/modify"/>
+            <mapping path="/board/delete"/>
+            <beans:ref bean="authenticationInterceptor"/>
+        </interceptor>
+</interceptors>
+
+--- 1.2.2) -----------------------------------------------------------
+<!-- 인터셉터 객체 생성 -->
+<beans:bean id="loginIntercerpter" class="com.ncs.green.LoginIntercepter" />
+<mvc:interceptors>
+	<mvc:interceptor>
+		<!-- 전체를 지정하고 제외경로 지정  -->
+		<mvc:mapping path="/**"/>  
+		<mvc:exclude-mapping path="/"/>
+		<mvc:exclude-mapping path="/home"/>
+		<mvc:exclude-mapping path="/loginf"/>
+		<mvc:exclude-mapping path="/joinf"/>
+		<mvc:exclude-mapping path="/join"/>
+		
+		<!-- <mvc:mapping path="/greensn" />
+		<mvc:mapping path="/greenall" />
+		<mvc:mapping path="/jeju" /> -->
+		<beans:ref bean="loginIntercerpter"/>
+	</mvc:interceptor>
+</mvc:interceptors>
+</interceptors>
+
+--- Spring05 실습---------------------------------------------------
+
+=> blist 에 대해 Login 후에만 실행 되도록 하고, 
+     Login 하지 않은 상태에서 요청을 하게 되면 Login 화면을 출력하여 Login 하도록 유도한다. 
+
+=> servlet-context.xml 수정,  LoginInterceptor.java 작성, 
+     loginForm.jsp, Controller의 mlogin 수정
+
+<!-- 인터셉터 객체 생성 -->
+<beans:bean id="LoginInterceptor" class="com.ncs.green.LoginInterceptor" />
+	
+<!-- 인터셉터 설정 -->
+<interceptors>
+	<interceptor>
+		<!-- <mapping path="/**"/>  전체경로 지정-->
+		<mapping path="/blist"/>
+		<!-- 제외시킬 파일 경로 
+		<exclude-mapping path="/joinF"/>
+		-->
+		<beans:ref bean="LoginInterceptor"/>
+	</interceptor>
+</interceptors>
+
+----------------------------------------------------------------------
+----------------------------------------------------------------------
+
+*** 2. LoginInterceptor.java  
+
+package com.ncs.green;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
+
+// 로그인처리를 담당하는 인터셉터
+// HandlerInterceptorAdapter
+// => HandlerInterceptor 인터페이스를 사용하기 편리하게 구현해 놓은 추상 클래스
+// 오버라이딩 단축키 : shift + alt + s + v 
+
+public class LoginInterceptor extends HandlerInterceptorAdapter {
+
+	// preHandle() : 컨트롤러보다 먼저 수행되는 메서드
+	@Override 
+	public boolean preHandle(HttpServletRequest request,
+				HttpServletResponse response, Object handler) throws Exception {
+	  
+		// session 객체를 가져옴
+		HttpSession session = request.getSession();
+	  
+		// login 여부 확인하기 
+		if (session.getAttribute("loginID")==null) { 
+			// 로그인이 안되어 있는 상태임으로 로그인 폼으로 다시 돌려보냄(redirect)
+			session.setAttribute("fail", "needLogin");
+			response.sendRedirect("/green/loginf");
+			// request.getRequestDispatcher("login/loginForm.jsp").forward(request, response);
+			// => 스프링의 경로 처리로 직접 jsp 를 실행 시킬수 없으므로 404 오류  
+			
+			// 더이상 컨트롤러 요청으로 가지 않도록 false로 반환함 return false; }
+			// => preHandle의 return은 컨트롤러 요청 uri로 가도 되냐 안되냐를 허가하는 의미임
+			//     따라서 true return 하면 컨트롤러  uri로 가게 됨. 
+			return false;
+		}else return true;
+	} // preHandle
+
+	// 컨트롤러가 수행되고 화면이 보여지기 직전에 수행되는 메서드
+	@Override
+	public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
+			ModelAndView modelAndView) throws Exception {
+		super.postHandle(request, response, handler, modelAndView);
+	} // postHandle 
+	
+	@Override
+    	public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex)
+            			throws Exception {
+        		super.afterCompletion(request, response, handler, ex);
+    	} // afterCompletion
+	
+} // class
+
+----------------------------------------------------------------------
+** loginForm.jsp 아래 코드 추가
+
+<c:if test="${fail=='needLogin'}">
+	<script>alert('Login 후  가능합니다~~');
+			$('#id').focus();
+	</script>
+</c:if>
+
+----------------------------------------------------------------------
+** Controller의 mlogin 메서드에 session 생성후 아래 코드 추가
+
+if (session.getAttribute("fail") !=null) session.removeAttribute("fail"); 
+// 인터셉터에서 만든 Attribute 필요없고, 오류 방지 위해 삭제함.
+
+
+
+
+
